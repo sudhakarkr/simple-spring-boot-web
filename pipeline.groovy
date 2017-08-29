@@ -8,10 +8,10 @@
 String ocpApiServer = env.OCP_API_SERVER ? "${env.OCP_API_SERVER}" : "https://openshift.default.svc.cluster.local"
 
 node('master') {
-
+  
   env.NAMESPACE = readFile('/var/run/secrets/kubernetes.io/serviceaccount/namespace').trim()
   env.TOKEN = readFile('/var/run/secrets/kubernetes.io/serviceaccount/token').trim()
-  env.OC_CMD = "oc --token=${env.TOKEN} --server=${ocpApiServer} --certificate-authority=/run/secrets/kubernetes.io/serviceaccount/ca.crt --namespace=${env.NAMESPACE}"
+  env.OC_CMD = "oc --request-timeout='0' --token=${env.TOKEN} --server=${ocpApiServer} --certificate-authority=/run/secrets/kubernetes.io/serviceaccount/ca.crt --namespace=${env.NAMESPACE}"
 
   env.APP_NAME = "${env.JOB_NAME}".replaceAll(/-?pipeline-?/, '').replaceAll(/-?${env.NAMESPACE}-?/, '')
   def projectBase = "${env.NAMESPACE}".replaceAll(/-dev/, '')
@@ -19,10 +19,10 @@ node('master') {
   env.STAGE2 = "${projectBase}-stage"
   env.STAGE3 = "${projectBase}-prod"
 
-  sh(returnStdout: true, script: "${env.OC_CMD} get is jenkins-slave-image-mgmt --template=\'{{ .status.dockerImageRepository }}\' -n openshift > /tmp/jenkins-slave-image-mgmt.out")
-  env.SKOPEO_SLAVE_IMAGE = readFile('/tmp/jenkins-slave-image-mgmt.out').trim()
-  println "${env.SKOPEO_SLAVE_IMAGE}"
-
+//  sh(returnStdout: true, script: "${env.OC_CMD} get is jenkins-slave-image-mgmt --template=\'{{ .status.dockerImageRepository }}\' -n openshift > /tmp/jenkins-slave-image-mgmt.out")
+//  env.SKOPEO_SLAVE_IMAGE = readFile('/tmp/jenkins-slave-image-mgmt.out').trim()
+   println "${ocpApiServer}"
+   //sh "env"
 }
 
 node('maven') {
@@ -30,17 +30,24 @@ node('maven') {
   // def artifactoryMaven = Artifactory.newMavenBuild()
   // def buildInfo = Artifactory.newBuildInfo()
   // def scannerHome = tool env.SONARQUBE_TOOL
-  def mvnHome = "/usr/share/maven/"
-  def mvnCmd = "${mvnHome}bin/mvn"
+  def mvnHome = env.MAVEN_HOME ? "${env.MAVEN_HOME}" : "/usr/share/maven/"
+  def mvnCmd = "mvn"
   String pomFileLocation = env.BUILD_CONTEXT_DIR ? "${env.BUILD_CONTEXT_DIR}/pom.xml" : "pom.xml"
 
   stage('SCM Checkout') {
     checkout scm
+    sh "orig=\$(pwd); cd \$(dirname ${pomFileLocation}); git describe --tags; cd \$orig"
   }
 
   stage('Build') {
 
     sh "${mvnCmd} clean install -DskipTests=true -f ${pomFileLocation}"
+
+  }
+
+  stage('unit test') {
+
+    sh "${mvnCmd} test -f ${pomFileLocation}"
 
   }
 
@@ -57,35 +64,38 @@ node('maven') {
           mv -v oc-build/deployments/\$(basename \$i) oc-build/deployments/ROOT.war
           break
        done
-
+       
        ${env.OC_CMD} start-build ${env.APP_NAME} --from-dir=oc-build --wait=true --follow=true || exit 1
-    """
+     """
   }
 
   stage("Verify Deployment to ${env.STAGE1}") {
 
     openshiftVerifyDeployment(deploymentConfig: "${env.APP_NAME}", namespace: "${STAGE1}", verifyReplicaCount: true)
 
-    input "Promote Application to Stage?"
+    //input "Promote Application to Stage?"
   }
 
   stage("Promote To ${env.STAGE2}") {
-    sh """
-    ${env.OC_CMD} tag ${env.STAGE1}/${env.APP_NAME}:latest ${env.STAGE2}/${env.APP_NAME}:latest
-    """
+    openshiftTag (alias: 'true', apiURL: "${ocpApiServer}", 
+                  authToken: "${env.TOKEN}", destStream: "${env.APP_NAME}", 
+                  destTag: 'latest', destinationAuthToken: "${env.TOKEN}", destinationNamespace: "${env.STAGE2}", 
+                  namespace: "${env.STAGE1}", srcStream: "${env.APP_NAME}", srcTag: 'latest', verbose: 'false')
   }
 
   stage("Verify Deployment to ${env.STAGE2}") {
 
     openshiftVerifyDeployment(deploymentConfig: "${env.APP_NAME}", namespace: "${STAGE2}", verifyReplicaCount: true)
 
-    input "Promote Application to Prod?"
+    input "Promote Application to ${env.STAGE3}?"
   }
 
   stage("Promote To ${env.STAGE3}") {
-    sh """
-    ${env.OC_CMD} tag ${env.STAGE2}/${env.APP_NAME}:latest ${env.STAGE3}/${env.APP_NAME}:latest
-    """
+    openshiftTag (alias: 'true', apiURL: "${ocpApiServer}", 
+                  authToken: "${env.TOKEN}", destStream: "${env.APP_NAME}", 
+                  destTag: 'latest', destinationAuthToken: "${env.TOKEN}", destinationNamespace: "${env.STAGE3}", 
+                  namespace: "${env.STAGE2}", srcStream: "${env.APP_NAME}", srcTag: 'latest', verbose: 'false')
+
   }
 
   stage("Verify Deployment to ${env.STAGE3}") {
