@@ -102,7 +102,7 @@ node('maven') {
   
   stage("Promote To ${env.STAGE3}") {
   
-    sh "oc get route "${env.APP_NAME}" -n ${env.STAGE3} -o jsonpath='{ .spec.to.name }' --loglevel=4 > activeservice"
+    sh "oc get route ${env.APP_NAME} -n ${env.STAGE3} -o jsonpath='{ .spec.to.name }' --loglevel=4 > activeservice"
     activeService = readFile('activeservice').trim()
     println("Current active service:" + activeService)
     if (activeService == "${env.APP_NAME}-blue") {
