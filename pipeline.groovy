@@ -37,9 +37,9 @@ node('maven') {
   // The following variables need to be defined at the top level and not inside
   // the scope of a stage - otherwise they would not be accessible from other stages.
   // Extract version and other properties from the pom.xml
-  def groupId    = getGroupIdFromPom("/pom.xml")
-  def artifactId = getArtifactIdFromPom("/pom.xml")
-  def version    = getVersionFromPom("/pom.xml")
+  def groupId    = getGroupIdFromPom("${env.APP_NAME}/pom.xml")
+  def artifactId = getArtifactIdFromPom("${env.APP_NAME}/pom.xml")
+  def version    = getVersionFromPom("${env.APP_NAME}/pom.xml")
 
 
   stage('SCM Checkout') {
