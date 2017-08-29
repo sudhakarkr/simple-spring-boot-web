@@ -116,7 +116,7 @@ node('maven') {
                   namespace: "${env.STAGE2}", srcStream: "${env.APP_NAME}", srcTag: "${version}", verbose: 'false')
 
     // Switch Route to new active c
-    sh "oc patch route "${env.APP_NAME}" --patch '{\"spec\": { \"to\": { \"name\": \"${env.APP_NAME}-${tag}\"}}}' -n "${env.STAGE3}"
+    sh "oc patch route ${env.APP_NAME} --patch '{\"spec\": { \"to\": { \"name\": \"${env.APP_NAME}-${tag}\"}}}' -n ${env.STAGE3}"
     println("Route switched to: " + tag)
   }
 
