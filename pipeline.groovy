@@ -34,7 +34,19 @@ node('maven') {
   def mvnCmd = "mvn"
   String pomFileLocation = env.BUILD_CONTEXT_DIR ? "${env.BUILD_CONTEXT_DIR}/pom.xml" : "pom.xml"
 
+  // The following variables need to be defined at the top level and not inside
+  // the scope of a stage - otherwise they would not be accessible from other stages.
+  // Extract version and other properties from the pom.xml
+  def groupId    = getGroupIdFromPom(myApp + "/pom.xml")
+  def artifactId = getArtifactIdFromPom(myApp + "/pom.xml")
+  def version    = getVersionFromPom(myApp + "/pom.xml")
+
+
   stage('SCM Checkout') {
+
+    println("Current version:" + version)
+    println("Artifact ID:" + artifactId + ", Group ID:" + groupId)
+
     checkout scm
     sh "orig=\$(pwd); cd \$(dirname ${pomFileLocation}); git describe --tags; cd \$orig"
   }
@@ -74,7 +86,7 @@ node('maven') {
   stage("Promote To ${env.STAGE2}") {
     openshiftTag (alias: 'true', apiURL: "${ocpApiServer}", 
                   authToken: "${env.TOKEN}", destStream: "${env.APP_NAME}", 
-                  destTag: 'latest', destinationAuthToken: "${env.TOKEN}", destinationNamespace: "${env.STAGE2}", 
+                  destTag: "${version}", destinationAuthToken: "${env.TOKEN}", destinationNamespace: "${env.STAGE2}", 
                   namespace: "${env.STAGE1}", srcStream: "${env.APP_NAME}", srcTag: 'latest', verbose: 'false')
   }
 
@@ -85,52 +97,49 @@ node('maven') {
     input "Promote Application to ${env.STAGE3}?"
   }
 
+  def tag = "blue"
+  def altTag = "green"
+  
   stage("Promote To ${env.STAGE3}") {
+  
+    sh "oc get route "${env.APP_NAME}" -n ${env.STAGE3} -o jsonpath='{ .spec.to.name }' --loglevel=4 > activeservice"
+    activeService = readFile('activeservice').trim()
+    println("Current active service:" + activeService)
+    if (activeService == "${env.APP_NAME}-blue") {
+       tag = "green"
+       altTag = "blue"
+    }
+  
     openshiftTag (alias: 'true', apiURL: "${ocpApiServer}", 
-                  authToken: "${env.TOKEN}", destStream: "${env.APP_NAME}", 
-                  destTag: 'latest', destinationAuthToken: "${env.TOKEN}", destinationNamespace: "${env.STAGE3}", 
-                  namespace: "${env.STAGE2}", srcStream: "${env.APP_NAME}", srcTag: 'latest', verbose: 'false')
+                  authToken: "${env.TOKEN}", destStream: "${env.APP_NAME}-${tag}", 
+                  destTag: "${version}", destinationAuthToken: "${env.TOKEN}", destinationNamespace: "${env.STAGE3}", 
+                  namespace: "${env.STAGE2}", srcStream: "${env.APP_NAME}", srcTag: "${version}", verbose: 'false')
 
+    // Switch Route to new active c
+    sh "oc patch route "${env.APP_NAME}" --patch '{\"spec\": { \"to\": { \"name\": \"${env.APP_NAME}-${tag}\"}}}' -n "${env.STAGE3}"
+    println("Route switched to: " + tag)
   }
 
   stage("Verify Deployment to ${env.STAGE3}") {
 
-    openshiftVerifyDeployment(deploymentConfig: "${env.APP_NAME}", namespace: "${STAGE3}", verifyReplicaCount: true)
+    openshiftVerifyDeployment(deploymentConfig: "${env.APP_NAME}-${tag}", namespace: "${STAGE3}", verifyReplicaCount: true)
+    println "Application ${env.APP_NAME}-${tag} is now in Production!"
 
   }
 }
 
-/*
-podTemplate(label: 'promotion-slave', cloud: 'openshift', containers: [
-  containerTemplate(name: 'jenkins-slave-image-mgmt', image: "${env.SKOPEO_SLAVE_IMAGE}", ttyEnabled: true, command: 'cat'),
-  containerTemplate(name: 'jnlp', image: 'jenkinsci/jnlp-slave:2.62-alpine', args: '${computer.jnlpmac} ${computer.name}')
-]) {
 
-  node('promotion-slave') {
-
-    stage("Promote To ${env.STAGE3}") {
-
-      container('jenkins-slave-image-mgmt') {
-        sh """
-
-        set +x
-        imageRegistry=\$(${env.OC_CMD} get is ${env.APP_NAME} --template='{{ .status.dockerImageRepository }}' -n ${env.STAGE2} | cut -d/ -f1)
-
-        strippedNamespace=\$(echo ${env.NAMESPACE} | cut -d/ -f1)
-
-        echo "Promoting \${imageRegistry}/${env.STAGE2}/${env.APP_NAME} -> \${imageRegistry}/${env.STAGE3}/${env.APP_NAME}"
-        skopeo --tls-verify=false copy --remove-signatures --src-creds openshift:${env.TOKEN} --dest-creds openshift:${env.TOKEN} docker://\${imageRegistry}/${env.STAGE2}/${env.APP_NAME} docker://\${imageRegistry}/${env.STAGE3}/${env.APP_NAME}
-        """
-      }
-    }
-
-    stage("Verify Deployment to ${env.STAGE3}") {
-
-      openshiftVerifyDeployment(deploymentConfig: "${env.APP_NAME}", namespace: "${STAGE3}", verifyReplicaCount: true)
-
-    }
-
-  }
+// Convenience Functions to read variables from the pom.xml
+// Do not change anything below this line.
+def getVersionFromPom(pom) {
+  def matcher = readFile(pom) =~ '<version>(.+)</version>'
+  matcher ? matcher[0][1] : null
 }
-*/
-println "Application ${env.APP_NAME} is now in Production!"
+def getGroupIdFromPom(pom) {
+  def matcher = readFile(pom) =~ '<groupId>(.+)</groupId>'
+  matcher ? matcher[0][1] : null
+}
+def getArtifactIdFromPom(pom) {
+  def matcher = readFile(pom) =~ '<artifactId>(.+)</artifactId>'
+  matcher ? matcher[0][1] : null
+}
