@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<artifactId>spring-boot-web-jsp</artifactId>
-	<packaging>jar</packaging>
+	<packaging>war</packaging>
 	<name>Openshift Spring Boot Example</name>
 	<description>Openshift Spring Boot CI/CD Example</description>
 	<version>1.0</version>
