@@ -60,11 +60,6 @@ node('maven') {
          cp -rfv ./target/*.\$t oc-build/deployments/ 2> /dev/null || echo "No \$t files"
        done
 
-       for i in oc-build/deployments/*.war; do
-          mv -v oc-build/deployments/\$(basename \$i) oc-build/deployments/ROOT.war
-          break
-       done
-       
        ${env.OC_CMD} start-build ${env.APP_NAME} --from-dir=oc-build --wait=true --follow=true || exit 1
      """
   }
