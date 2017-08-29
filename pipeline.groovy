@@ -34,15 +34,6 @@ node('maven') {
   def mvnCmd = "mvn"
   String pomFileLocation = env.BUILD_CONTEXT_DIR ? "${env.BUILD_CONTEXT_DIR}/pom.xml" : "pom.xml"
 
-  // The following variables need to be defined at the top level and not inside
-  // the scope of a stage - otherwise they would not be accessible from other stages.
-  // Extract version and other properties from the pom.xml
-  sh "pwd;ls -lrt"
-  def groupId    = getGroupIdFromPom("./pom.xml")
-  def artifactId = getArtifactIdFromPom("./pom.xml")
-  def version    = getVersionFromPom("./pom.xml")
-
-
   stage('SCM Checkout') {
 
     println("Current version:" + version)
@@ -64,6 +55,14 @@ node('maven') {
 
   }
 
+  // The following variables need to be defined at the top level and not inside
+  // the scope of a stage - otherwise they would not be accessible from other stages.
+  // Extract version and other properties from the pom.xml
+  sh "pwd;ls -lrt"
+  def groupId    = getGroupIdFromPom("./pom.xml")
+  def artifactId = getArtifactIdFromPom("./pom.xml")
+  def version    = getVersionFromPom("./pom.xml")
+  
   stage('Build Image') {
 
     sh """
