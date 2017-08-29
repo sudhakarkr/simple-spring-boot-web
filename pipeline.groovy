@@ -36,9 +36,6 @@ node('maven') {
 
   stage('SCM Checkout') {
 
-    println("Current version:" + version)
-    println("Artifact ID:" + artifactId + ", Group ID:" + groupId)
-
     checkout scm
     sh "orig=\$(pwd); cd \$(dirname ${pomFileLocation}); git describe --tags; cd \$orig"
   }
@@ -62,6 +59,9 @@ node('maven') {
   def groupId    = getGroupIdFromPom("./pom.xml")
   def artifactId = getArtifactIdFromPom("./pom.xml")
   def version    = getVersionFromPom("./pom.xml")
+  println("Current version:" + version)
+  println("Artifact ID:" + artifactId + ", Group ID:" + groupId)
+
   
   stage('Build Image') {
 
