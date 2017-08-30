@@ -59,9 +59,9 @@ node('maven') {
   def groupId    = getGroupIdFromPom("./pom.xml")
   def artifactId = getArtifactIdFromPom("./pom.xml")
   def version    = getVersionFromPom("./pom.xml")
-  println("Current version:" + version)
   println("Artifact ID:" + artifactId + ", Group ID:" + groupId)
-  version = "lastest"
+  version = version + ",latest"
+  println("New version tag:" + version)
   
   stage('Build Image') {
 
@@ -84,14 +84,9 @@ node('maven') {
   }
 
   stage("Promote To ${env.STAGE2}") {
-	//openshiftTag (alias: 'false', apiURL: "${ocpApiServer}", 
-    //              authToken: "${env.TOKEN}", destStream: "${env.APP_NAME}", 
-    //              destTag: 'latest', destinationAuthToken: "${env.TOKEN}", destNamespace: "${env.STAGE2}", 
-    //              namespace: "${env.STAGE1}", srcStream: "${env.APP_NAME}", srcTag: 'latest', verbose: 'false') 
    sh """
-    ${env.OC_CMD} tag ${env.STAGE1}/${env.APP_NAME}:latest ${env.STAGE2}/${env.APP_NAME}:latest
+    ${env.OC_CMD} tag ${env.STAGE1}/${env.APP_NAME}:latest ${env.STAGE2}/${env.APP_NAME}:${version}
     """
-   input "hello world" 
   }
 
   stage("Verify Deployment to ${env.STAGE2}") {
@@ -111,15 +106,10 @@ node('maven') {
     if (activeService == "${env.APP_NAME}-blue") {
        tag = "green"
        altTag = "blue"
-    }
-  
-    openshiftTag (alias: 'true', apiURL: "${ocpApiServer}", 
-                  authToken: "${env.TOKEN}", destStream: "${env.APP_NAME}-${tag}", 
-                  destTag: "${version}", destinationAuthToken: "${env.TOKEN}", destinationNamespace: "${env.STAGE3}", 
-                  namespace: "${env.STAGE2}", srcStream: "${env.APP_NAME}", srcTag: "${version}", verbose: 'false')
-                  
-    openshiftDeploy apiURL: "${ocpApiServer}", authToken: "${env.TOKEN}", depCfg: "${env.APP_NAME}-${tag}", namespace: "${env.STAGE3}", waitTime: '300', waitUnit: 'sec'
 
+    sh """
+      ${env.OC_CMD} tag ${env.STAGE2}/${env.APP_NAME}:${version} ${env.STAGE3}/${env.APP_NAME}-${tag}:${version}
+      """
   }
 
   stage("Verify Deployment to ${env.STAGE3}") {
