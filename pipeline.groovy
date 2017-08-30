@@ -84,10 +84,10 @@ node('maven') {
   }
 
   stage("Promote To ${env.STAGE2}") {
-	openshiftTag (alias: 'true', apiURL: "${ocpApiServer}", 
+	openshiftTag (alias: 'false', apiURL: "${ocpApiServer}", 
                   authToken: "${env.TOKEN}", destStream: "${env.APP_NAME}", 
                   destTag: 'latest', destinationAuthToken: "${env.TOKEN}", destNamespace: "${env.STAGE2}", 
-                  namespace: "${env.STAGE1}", srcStream: "${env.APP_NAME}", srcTag: 'latest', verbose: 'true') 
+                  namespace: "${env.STAGE1}", srcStream: "${env.APP_NAME}", srcTag: 'latest', verbose: 'false') 
    //sh """
    // ${env.OC_CMD} tag ${env.STAGE1}/${env.APP_NAME}:latest ${env.STAGE2}/${env.APP_NAME}:latest
    // """
