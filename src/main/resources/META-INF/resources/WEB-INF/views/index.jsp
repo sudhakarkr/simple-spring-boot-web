@@ -20,7 +20,7 @@
 	<div class="container">
 
 		<div class="starter-template">
-			<h1>Openshift Spring Boot CI/CD Blue Green  Example</h1>
+			<h1>Openshift Spring Boot CI/CD Blue/Green deployment example</h1>
 			<h2 class="${currentDeployment}">Message: ${message}</h2>
 		</div>
 
