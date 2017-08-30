@@ -16,7 +16,12 @@ public class WelcomeController {
 	@RequestMapping("/")
 	public String welcome(Map<String, Object> model) {
 		model.put("message", this.message);
-                model.put("currentDeployment","green");
+                
+                String myName = System.getenv("MY_DEPLOYMENT_NAME");
+                if (myName != null && myName.indexOf("blue") >= 0)
+                  model.put("currentDeployment","blue");
+                else
+                  model.put("currentDeployment","green");
 		return "index";
 	}
 
