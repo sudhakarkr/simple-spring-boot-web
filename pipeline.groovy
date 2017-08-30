@@ -61,7 +61,7 @@ node('maven') {
   def version    = getVersionFromPom("./pom.xml")
   println("Current version:" + version)
   println("Artifact ID:" + artifactId + ", Group ID:" + groupId)
-
+  version = "lastest"
   
   stage('Build Image') {
 
@@ -114,7 +114,7 @@ node('maven') {
                   destTag: "${version}", destinationAuthToken: "${env.TOKEN}", destinationNamespace: "${env.STAGE3}", 
                   namespace: "${env.STAGE2}", srcStream: "${env.APP_NAME}", srcTag: "${version}", verbose: 'false')
                   
-    openshiftDeploy apiURL: "${ocpApiServer}", authToken: "${env.TOKEN}", depCfg: "${env.APP_NAME}-${tag}", namespace: "${env.STAGE3}", verbose: 'true', waitTime: '300', waitUnit: 'sec'
+    openshiftDeploy apiURL: "${ocpApiServer}", authToken: "${env.TOKEN}", depCfg: "${env.APP_NAME}-${tag}", namespace: "${env.STAGE3}", waitTime: '300', waitUnit: 'sec'
 
   }
 
