@@ -106,6 +106,7 @@ node('maven') {
     if (activeService == "${env.APP_NAME}-blue") {
        tag = "green"
        altTag = "blue"
+    }
 
     sh """
       ${env.OC_CMD} tag ${env.STAGE2}/${env.APP_NAME}:${version} ${env.STAGE3}/${env.APP_NAME}-${tag}:${version}
