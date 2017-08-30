@@ -87,7 +87,7 @@ node('maven') {
    sh """
     ${env.OC_CMD} tag ${env.STAGE1}/${env.APP_NAME}:latest ${env.STAGE2}/${env.APP_NAME}:${version}
     """
-    openshiftDeploy apiURL: ${ocpApiServer}, authToken: ${env.TOKEN}, depCfg: ${env.APP_NAME}, namespace: ${env.STAGE2},  waitTime: '300', waitUnit: 'sec'
+    openshiftDeploy (apiURL: "${ocpApiServer}", authToken: "${env.TOKEN}", depCfg: "${env.APP_NAME}", namespace: "${env.STAGE2}",  waitTime: '300', waitUnit: 'sec')
   }
 
   stage("Verify Deployment to ${env.STAGE2}") {
@@ -112,7 +112,7 @@ node('maven') {
     sh """
       ${env.OC_CMD} tag ${env.STAGE2}/${env.APP_NAME}:${version} ${env.STAGE3}/${env.APP_NAME}-${tag}:${version}
       """
-    openshiftDeploy apiURL: ${ocpApiServer}, authToken: ${env.TOKEN}, depCfg: ${env.APP_NAME}-${tag}, namespace: ${env.STAGE3},  waitTime: '300', waitUnit: 'sec'
+    openshiftDeploy (apiURL: "${ocpApiServer}", authToken: "${env.TOKEN}", depCfg: "${env.APP_NAME}-${tag}", namespace: "${env.STAGE3}",  waitTime: '300', waitUnit: 'sec')
 
   }
 
