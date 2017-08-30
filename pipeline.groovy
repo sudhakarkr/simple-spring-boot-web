@@ -85,8 +85,9 @@ node('maven') {
 
   stage("Promote To ${env.STAGE2}") {
    sh """
-    ${env.OC_CMD} tag ${env.STAGE1}/${env.APP_NAME}:latest ${env.STAGE2}/${env.APP_NAME}:'latest',${version}
+    ${env.OC_CMD} tag ${env.STAGE1}/${env.APP_NAME}:latest ${env.STAGE2}/${env.APP_NAME}:${version}
     """
+    sh "oc patch dc ${env.APP_NAME} --patch '{\"spec\": { \"triggers\": [ { \"type\": \"ImageChange\", \"imageChangeParams\": { \"containerNames\": [ \"${env.APP_NAME}\" ], \"from\": { \"kind\": \"ImageStreamTag\", \"namespace\": \"${env.STAGE2}\", \"name\": \"${env.APP_NAME}:$tag\"}}}]}}' -n ${env.STAGE2}"
     openshiftDeploy (apiURL: "${ocpApiServer}", authToken: "${env.TOKEN}", depCfg: "${env.APP_NAME}", namespace: "${env.STAGE2}",  waitTime: '300', waitUnit: 'sec')
   }
 
