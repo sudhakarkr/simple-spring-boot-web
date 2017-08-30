@@ -94,7 +94,6 @@ node('maven') {
 
     openshiftVerifyDeployment(deploymentConfig: "${env.APP_NAME}", namespace: "${STAGE2}", verifyReplicaCount: true)
 
-    input "Promote Application to ${env.STAGE3}?"
   }
 
   def tag = "blue"
@@ -114,10 +113,9 @@ node('maven') {
                   authToken: "${env.TOKEN}", destStream: "${env.APP_NAME}-${tag}", 
                   destTag: "${version}", destinationAuthToken: "${env.TOKEN}", destinationNamespace: "${env.STAGE3}", 
                   namespace: "${env.STAGE2}", srcStream: "${env.APP_NAME}", srcTag: "${version}", verbose: 'false')
+                  
+    openshiftDeploy apiURL: "${ocpApiServer}", authToken: "${env.TOKEN}", depCfg: "${env.APP_NAME}-${tag}", namespace: "${env.STAGE3}", verbose: 'true', waitTime: '300', waitUnit: 'sec'
 
-    // Switch Route to new active c
-    sh "oc patch route ${env.APP_NAME} --patch '{\"spec\": { \"to\": { \"name\": \"${env.APP_NAME}-${tag}\"}}}' -n ${env.STAGE3}"
-    println("Route switched to: " + tag)
   }
 
   stage("Verify Deployment to ${env.STAGE3}") {
@@ -125,6 +123,12 @@ node('maven') {
     openshiftVerifyDeployment(deploymentConfig: "${env.APP_NAME}-${tag}", namespace: "${STAGE3}", verifyReplicaCount: true)
     println "Application ${env.APP_NAME}-${tag} is now in Production!"
 
+    input "Switch ${env.STAGE3} form ${altTag} to ${tag} deployment?"
+    
+    // Switch Route to new active c
+    sh "oc patch route ${env.APP_NAME} --patch '{\"spec\": { \"to\": { \"name\": \"${env.APP_NAME}-${tag}\"}}}' -n ${env.STAGE3}"
+    println("Route switched to: " + tag)
+    
   }
 }
 
