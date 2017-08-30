@@ -60,7 +60,7 @@ node('maven') {
   def artifactId = getArtifactIdFromPom("./pom.xml")
   def version    = getVersionFromPom("./pom.xml")
   println("Artifact ID:" + artifactId + ", Group ID:" + groupId)
-  version = version + ",latest"
+  version = version
   println("New version tag:" + version)
   
   stage('Build Image') {
