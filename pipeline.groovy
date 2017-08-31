@@ -19,17 +19,9 @@ node('master') {
   env.STAGE2 = "${projectBase}-stage"
   env.STAGE3 = "${projectBase}-prod"
 
-//  sh(returnStdout: true, script: "${env.OC_CMD} get is jenkins-slave-image-mgmt --template=\'{{ .status.dockerImageRepository }}\' -n openshift > /tmp/jenkins-slave-image-mgmt.out")
-//  env.SKOPEO_SLAVE_IMAGE = readFile('/tmp/jenkins-slave-image-mgmt.out').trim()
-   println "${ocpApiServer}"
-   //sh "env"
 }
 
 node('maven') {
-//  def artifactory = Artifactory.server(env.ARTIFACTORY_SERVER)
-  // def artifactoryMaven = Artifactory.newMavenBuild()
-  // def buildInfo = Artifactory.newBuildInfo()
-  // def scannerHome = tool env.SONARQUBE_TOOL
   def mvnHome = env.MAVEN_HOME ? "${env.MAVEN_HOME}" : "/usr/share/maven/"
   def mvnCmd = "mvn"
   String pomFileLocation = env.BUILD_CONTEXT_DIR ? "${env.BUILD_CONTEXT_DIR}/pom.xml" : "pom.xml"
@@ -46,7 +38,7 @@ node('maven') {
 
   }
 
-  stage('unit test') {
+  stage('Unit Test') {
 
     sh "${mvnCmd} test -f ${pomFileLocation}"
 
@@ -55,12 +47,10 @@ node('maven') {
   // The following variables need to be defined at the top level and not inside
   // the scope of a stage - otherwise they would not be accessible from other stages.
   // Extract version and other properties from the pom.xml
-  sh "pwd;ls -lrt"
   def groupId    = getGroupIdFromPom("./pom.xml")
   def artifactId = getArtifactIdFromPom("./pom.xml")
   def version    = getVersionFromPom("./pom.xml")
   println("Artifact ID:" + artifactId + ", Group ID:" + groupId)
-  version = version
   println("New version tag:" + version)
   
   stage('Build Image') {
@@ -83,6 +73,11 @@ node('maven') {
     //input "Promote Application to Stage?"
   }
 
+  stage('Integration Test') {
+
+	//TODO: Add application integration testing, verify db connectivity, rest calls ...
+  }
+
   stage("Promote To ${env.STAGE2}") {
    sh """
     ${env.OC_CMD} tag ${env.STAGE1}/${env.APP_NAME}:latest ${env.STAGE2}/${env.APP_NAME}:${version}
@@ -97,8 +92,8 @@ node('maven') {
 
   }
 
-  def tag = "blue"
-  def altTag = "green"
+  def newState = "blue"
+  def currentState = "green"
   
   stage("Promote To ${env.STAGE3}") {
   
@@ -106,28 +101,28 @@ node('maven') {
     activeService = readFile('activeservice').trim()
     println("Current active service:" + activeService)
     if (activeService == "${env.APP_NAME}-blue") {
-       tag = "green"
-       altTag = "blue"
+       newState = "green"
+       currentState = "blue"
     }
 
     sh """
-      ${env.OC_CMD} tag ${env.STAGE1}/${env.APP_NAME}:'latest' ${env.STAGE3}/${env.APP_NAME}-${tag}:${version}
+      ${env.OC_CMD} tag ${env.STAGE1}/${env.APP_NAME}:'latest' ${env.STAGE3}/${env.APP_NAME}-${newState}:${version}
       """
-    sh "${env.OC_CMD} patch dc ${env.APP_NAME}-${tag} --patch '{\"spec\": { \"triggers\": [ { \"type\": \"ImageChange\", \"imageChangeParams\": { \"containerNames\": [ \"${env.APP_NAME}-${tag}\" ], \"from\": { \"kind\": \"ImageStreamTag\", \"namespace\": \"${env.STAGE3}\", \"name\": \"${env.APP_NAME}-${tag}:${version}\"}}}]}}' -n ${env.STAGE3}"
+    sh "${env.OC_CMD} patch dc ${env.APP_NAME}-${newState} --patch '{\"spec\": { \"triggers\": [ { \"type\": \"ImageChange\", \"imageChangeParams\": { \"containerNames\": [ \"${env.APP_NAME}-${newState}\" ], \"from\": { \"kind\": \"ImageStreamTag\", \"namespace\": \"${env.STAGE3}\", \"name\": \"${env.APP_NAME}-${newState}:${version}\"}}}]}}' -n ${env.STAGE3}"
     
-    openshiftDeploy (apiURL: "${ocpApiServer}", authToken: "${env.TOKEN}", depCfg: "${env.APP_NAME}-${tag}", namespace: "${env.STAGE3}",  waitTime: '300', waitUnit: 'sec')
+    openshiftDeploy (apiURL: "${ocpApiServer}", authToken: "${env.TOKEN}", depCfg: "${env.APP_NAME}-${newState}", namespace: "${env.STAGE3}",  waitTime: '300', waitUnit: 'sec')
 
   }
 
   stage("Verify Deployment to ${env.STAGE3}") {
 
-    openshiftVerifyDeployment(deploymentConfig: "${env.APP_NAME}-${tag}", namespace: "${STAGE3}", verifyReplicaCount: true)
-    println "Application ${env.APP_NAME}-${tag} is now in Production!"
+    openshiftVerifyDeployment(deploymentConfig: "${env.APP_NAME}-${newState}", namespace: "${STAGE3}", verifyReplicaCount: true)
+    println "Application ${env.APP_NAME}-${newState} is now in Production!"
 
-    input "Switch ${env.STAGE3} form ${altTag} to ${tag} deployment?"
+    input "Switch ${env.STAGE3} form ${currentState} to ${newState} deployment?"
     
     // Switch Route to new active c
-    sh "oc patch route ${env.APP_NAME} --patch '{\"spec\": { \"to\": { \"name\": \"${env.APP_NAME}-${tag}\"}}}' -n ${env.STAGE3}"
+    sh "oc patch route ${env.APP_NAME} --patch '{\"spec\": { \"to\": { \"name\": \"${env.APP_NAME}-${newState}\"}}}' -n ${env.STAGE3}"
     println("Route switched to: " + tag)
     
   }
