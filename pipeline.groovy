@@ -123,7 +123,7 @@ node('maven') {
     
     // Switch Route to new active c
     sh "oc patch route ${env.APP_NAME} --patch '{\"spec\": { \"to\": { \"name\": \"${env.APP_NAME}-${newState}\"}}}' -n ${env.STAGE3}"
-    println("Route switched to: " + tag)
+    println("Route switched to: " + newState)
     
   }
 }
